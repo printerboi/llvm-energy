@@ -1158,6 +1158,17 @@ public:
 
     Type *Ty = U->getType();
     unsigned Opcode = Operator::getOpcode(U);
+
+    llvm::errs() << " OP: " << Opcode << "\n";
+
+    /**
+     * We should catch the case that the caller requests the TCK_Energy costtype.
+     * In this case we open another switch block, where we relay the request to
+     * a special method implemented by each target.
+     * Might be the dirtiest implementation ever, but will be currently the fastest approach
+     */
+
+
     auto *I = dyn_cast<Instruction>(U);
     switch (Opcode) {
     default:
