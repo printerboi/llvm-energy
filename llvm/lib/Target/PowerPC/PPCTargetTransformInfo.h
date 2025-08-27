@@ -150,7 +150,7 @@ public:
 
 private:
   // The following constant is used for estimating costs on power9.
-  static const InstructionCost::CostType P9PipelineFlushEstimate = 80;
+  static constexpr InstructionCost::CostType P9PipelineFlushEstimate = 80.0;
 
   /// @}
 };

@@ -256,7 +256,8 @@ public:
     TCK_RecipThroughput, ///< Reciprocal throughput.
     TCK_Latency,         ///< The latency of instruction.
     TCK_CodeSize,        ///< Instruction code size.
-    TCK_SizeAndLatency   ///< The weighted sum of size and latency.
+    TCK_SizeAndLatency,   ///< The weighted sum of size and latency.
+    TCK_Energy
   };
 
   /// Underlying constants for 'cost' values in this interface.
