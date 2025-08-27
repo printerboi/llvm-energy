@@ -1,4 +1,4 @@
-# The LLVM Compiler Infrastructure
+# The LLVM Compiler Infrastructure (Version 18.1.3)
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8273/badge)](https://www.bestpractices.dev/projects/8273)
