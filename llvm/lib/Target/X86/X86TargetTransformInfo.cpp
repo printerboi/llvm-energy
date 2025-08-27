@@ -227,6 +227,8 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     ArrayRef<const Value *> Args,
     const Instruction *CxtI) {
 
+      llvm::errs() << CostKind << "\n";
+
   // Default handler for energy related information
   if(CostKind == TTI::TargetCostKind::TCK_Energy) {
     InstructionCost Cost = 0;
