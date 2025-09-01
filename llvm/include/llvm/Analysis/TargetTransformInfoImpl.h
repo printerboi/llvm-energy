@@ -1159,7 +1159,7 @@ public:
     Type *Ty = U->getType();
     unsigned Opcode = Operator::getOpcode(U);
 
-    llvm::errs() << " OP: " << Opcode << "\n";
+    //llvm::errs() << " OP: " << Opcode << "\n";
 
     /**
      * We should catch the case that the caller requests the TCK_Energy costtype.
@@ -1169,6 +1169,7 @@ public:
      */
 
     if(CostKind == TTI::TCK_Energy) {
+      llvm::errs() << " Energy called" << "\n";
       switch (Opcode) {
         case llvm::Instruction::Add:     return 0.004056653715470496f;
         case llvm::Instruction::FAdd:    return 0.003215064520134321f;

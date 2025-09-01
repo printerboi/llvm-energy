@@ -880,6 +880,7 @@ Expected<InstCombineOptions> parseInstCombineOptions(StringRef Params) {
 /// Parser of parameters for LoopVectorize pass.
 Expected<LoopVectorizeOptions> parseLoopVectorizeOptions(StringRef Params) {
   LoopVectorizeOptions Opts;
+  
   while (!Params.empty()) {
     StringRef ParamName;
     std::tie(ParamName, Params) = Params.split(';');
@@ -893,6 +894,10 @@ Expected<LoopVectorizeOptions> parseLoopVectorizeOptions(StringRef Params) {
       return make_error<StringError>(
           formatv("invalid LoopVectorize parameter '{0}' ", ParamName).str(),
           inconvertibleErrorCode());
+    }
+
+    if (ParamName == "enable-energy-awareness") {
+      Opts.setEnergyAwareness(Enable);
     }
   }
   return Opts;

@@ -120,6 +120,8 @@ struct LoopVectorizeOptions {
   /// If true, only loops that explicitly request vectorization are considered.
   bool VectorizeOnlyWhenForced;
 
+  bool EnableEnergyAwareness;
+
   /// The current defaults when creating the pass with no arguments are:
   /// EnableLoopInterleaving = true and EnableLoopVectorization = true. This
   /// means that interleaving default is consistent with the cl::opt flag, while
@@ -134,7 +136,13 @@ struct LoopVectorizeOptions {
   LoopVectorizeOptions(bool InterleaveOnlyWhenForced,
                        bool VectorizeOnlyWhenForced)
       : InterleaveOnlyWhenForced(InterleaveOnlyWhenForced),
-        VectorizeOnlyWhenForced(VectorizeOnlyWhenForced) {}
+        VectorizeOnlyWhenForced(VectorizeOnlyWhenForced),
+        EnableEnergyAwareness(false) {}
+
+  LoopVectorizeOptions &setEnergyAwareness(bool Value) {
+    EnableEnergyAwareness = Value;
+    return *this;
+  }
 
   LoopVectorizeOptions &setInterleaveOnlyWhenForced(bool Value) {
     InterleaveOnlyWhenForced = Value;
@@ -166,6 +174,8 @@ private:
   /// If false, consider all loops for vectorization.
   /// If true, only loops that explicitly request vectorization are considered.
   bool VectorizeOnlyWhenForced;
+
+  bool EnableEnergyAwareness;
 
 public:
   LoopVectorizePass(LoopVectorizeOptions Opts = {});
