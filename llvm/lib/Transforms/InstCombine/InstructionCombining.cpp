@@ -142,6 +142,10 @@ static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
 
+static cl::opt<bool>
+EnergyAware("instcombine-energy-aware", cl::init(false),
+             cl::desc("..."));
+
 // FIXME: Remove this flag when it is no longer necessary to convert
 // llvm.dbg.declare to avoid inaccurate debug info. Setting this to false
 // increases variable availability at the cost of accuracy. Variables that
@@ -627,6 +631,11 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
     if (match(Op, m_Shl(m_Value(), m_Constant(C)))) {
       // X << C --> X * (1 << C)
       RHS = ConstantExpr::getShl(ConstantInt::get(Op->getType(), 1), C);
+      if(EnergyAware){
+        dbgs() << "hmmmmmmmmmmmmmm" << "\n";
+        return Instruction::Shl;
+      }
+
       return Instruction::Mul;
     }
     // TODO: We can add other conversions e.g. shr => div etc.
@@ -4500,8 +4509,15 @@ bool InstCombinerImpl::run() {
 
     if (Instruction *Result = visit(*I)) {
       ++NumCombined;
+      //dbgs() << I->getOpcode() << "\n";
+
       // Should we replace the old instruction with a new one?
       if (Result != I) {
+        if(!EnergyAware) {
+          dbgs() << "I (old): " << I->getOpcode() << " energy: " << TTI.getInstructionCost(I, TTI::TCK_Energy) << "\n";
+          dbgs() << "I (new): " << Result->getOpcode() << " energy: " << TTI.getInstructionCost(Result, TTI::TCK_Energy) << "\n";
+        } 
+
         LLVM_DEBUG(dbgs() << "IC: Old = " << *I << '\n'
                           << "    New = " << *Result << '\n');
 
@@ -4853,6 +4869,8 @@ PreservedAnalyses InstCombinePass::run(Function &F,
       MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
+
+      dbgs() << F.getName() << "\n";
 
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
                                        BFI, PSI, LI, Options))
