@@ -4554,18 +4554,22 @@ bool InstCombinerImpl::run() {
       ++NumCombined;
       //dbgs() << I->getOpcode() << "\n";
 
+      InstructionCost nCost = TTI.getInstructionCost(Result, TTI::TCK_Energy);
+      InstructionCost oCost = TTI.getInstructionCost(I, TTI::TCK_Energy);
+
+      if (nCost < oCost && EnergyAware){
+        dbgs() << "Benefit $$$" << ( ( nCost < oCost ) || !EnergyAware ) << "\n";
+      }
+
       // Should we replace the old instruction with a new one?
-      if (Result != I) {
-        if(!EnergyAware) {
-          dbgs() << "I (old): " << I->getOpcode() << " energy: " << TTI.getInstructionCost(I, TTI::TCK_Energy) << "\n";
-          dbgs() << "I (new): " << Result->getOpcode() << " energy: " << TTI.getInstructionCost(Result, TTI::TCK_Energy) << "\n";
-        } 
+      if (Result != I  ) {
+        dbgs() << "Replacing..." << "\n";
 
         LLVM_DEBUG(dbgs() << "IC: Old = " << *I << '\n'
                           << "    New = " << *Result << '\n');
 
         Result->copyMetadata(*I,
-                             {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
+                            {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
         // Everything uses the new instruction now.
         I->replaceAllUsesWith(Result);
 
@@ -4591,7 +4595,9 @@ bool InstCombinerImpl::run() {
         Worklist.pushUsersToWorkList(*Result);
         Worklist.push(Result);
 
-        eraseInstFromFunction(*I);
+        if(( ( nCost < oCost ) || !EnergyAware )) {
+          eraseInstFromFunction(*I);
+        }
       } else {
         LLVM_DEBUG(dbgs() << "IC: Mod = " << OrigI << '\n'
                           << "    New = " << *I << '\n');
@@ -4915,6 +4921,8 @@ PreservedAnalyses InstCombinePass::run(Function &F,
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
       dbgs() << F.getName() << "\n";
+
+      Options.setVerifyFixpoint(false);
 
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
                                        BFI, PSI, LI, Options))
