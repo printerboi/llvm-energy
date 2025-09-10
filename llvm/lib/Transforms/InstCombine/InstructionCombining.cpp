@@ -631,10 +631,6 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
     if (match(Op, m_Shl(m_Value(), m_Constant(C)))) {
       // X << C --> X * (1 << C)
       RHS = ConstantExpr::getShl(ConstantInt::get(Op->getType(), 1), C);
-      if(EnergyAware){
-        dbgs() << "hmmmmmmmmmmmmmm" << "\n";
-        return Instruction::Shl;
-      }
 
       return Instruction::Mul;
     }
@@ -1081,25 +1077,72 @@ Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
   // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
   // a common term.
   if (Op0 && Op1 && LHSOpcode == RHSOpcode)
-    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D))
-      return V;
+    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
+          return V;
+        }
+      }else{
+        return V;
+      }
+    }
 
   // The instruction has the form "(A op' B) op (C)".  Try to factorize common
   // term.
   if (Op0)
     if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
       if (Value *V =
-              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident))
+              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
         return V;
+      }
+      }else{
+        return V;
+      }
+    }
 
   // The instruction has the form "(B) op (C op' D)".  Try to factorize common
   // term.
   if (Op1)
     if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
       if (Value *V =
-              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D))
-        return V;
+              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
 
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
+        return V;
+      }
+      }else{
+        return V;
+      }
+    }
   return nullptr;
 }
 
@@ -4813,7 +4856,8 @@ static bool combineInstructionsOverFunction(
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);
     MadeChangeInThisIteration |= IC.run();
-    if (!MadeChangeInThisIteration)
+    // We only alow one pass for energy improvement currently
+    if (!MadeChangeInThisIteration || EnergyAware)
       break;
 
     MadeIRChange = true;
