@@ -20,6 +20,6 @@ default-to-binary:
 
 
 energy-to-binary:
-	../../build/bin/llvm-as opt_default.ll -o energy.bc
+	../../build/bin/llvm-as opt_energy.ll -o energy.bc
 	../../build/bin/llc -filetype=obj energy.bc -o energy.o
 	../../build/bin/clang++ -O0 -no-pie energy.o -o energy
