@@ -514,8 +514,8 @@ FUNCTION_PASS_WITH_PARAMS(
     "energy-loop-vectorize", "LoopVectorizePass",
     [](LoopVectorizeOptions Opts) { return LoopVectorizePass(Opts); },
     parseLoopVectorizeOptions,
-    "no-interleave-forced-only;interleave-forced-only;no-vectorize-forced-only;enable-energy-awareness"
-    "vectorize-forced-only")
+    "no-interleave-forced-only;interleave-forced-only;no-vectorize-forced-only;"
+    "vectorize-forced-only;")
 FUNCTION_PASS_WITH_PARAMS(
     "lower-matrix-intrinsics", "LowerMatrixIntrinsicsPass",
     [](bool Minimal) { return LowerMatrixIntrinsicsPass(Minimal); },

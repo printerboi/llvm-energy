@@ -171,26 +171,6 @@ const char LLVMLoopVectorizeFollowupEpilogue[] =
     "llvm.loop.vectorize.followup_epilogue";
 /// @}
 
-class CostHelper {
-public:
-  bool energyAware = false;
-
-  CostHelper(bool ea) {
-    this->energyAware = ea;
-  }
-
-  TTI::TargetCostKind getCostKind() {
-    if (this->energyAware) {
-      llvm::errs() << "ENERGY" << "\n";
-      return TTI::TCK_Energy;
-    } else {
-      return TTI::TCK_RecipThroughput;
-    }
-  }
-};
-
-CostHelper CostHelperObj(false);
-
 STATISTIC(LoopsVectorized, "Number of loops vectorized");
 STATISTIC(LoopsAnalyzed, "Number of loops analyzed for vectorization");
 STATISTIC(LoopsEpilogueVectorized, "Number of epilogues vectorized");
@@ -222,6 +202,23 @@ static cl::opt<unsigned> TinyTripCountVectorThreshold(
 static cl::opt<unsigned> VectorizeMemoryCheckThreshold(
     "vectorize-memory-check-threshold", cl::init(128), cl::Hidden,
     cl::desc("The maximum allowed number of runtime memory checks"));
+
+
+static cl::opt<bool> EnergyAware(
+    "enable-energy-aware", cl::init(false), cl::Hidden,
+    cl::desc("..."));
+
+class CostHelper {
+public:
+  static TTI::TargetCostKind getCostKind() {
+    if (EnergyAware) {
+      //llvm::errs() << "ENERGY!!!" << "\n";
+      return TTI::TCK_Energy;
+    } else {
+      return TTI::TCK_RecipThroughput;
+    }
+  }
+};
 
 // Option prefer-predicate-over-epilogue indicates that an epilogue is undesired,
 // that predication is preferred, and this lists all options. I.e., the
@@ -2099,8 +2096,9 @@ public:
         if (SCEVCheckBlock->getTerminator() == &I)
           continue;
         InstructionCost C =
-            TTI->getInstructionCost(&I, CostHelperObj.getCostKind());
+            TTI->getInstructionCost(&I, CostHelper::getCostKind());
         LLVM_DEBUG(dbgs() << "  " << C << "  for " << I << "\n");
+        dbgs() << "  " << C << "  for " << I << "\n";
         RTCheckCost += C;
       }
     if (MemCheckBlock) {
@@ -2109,8 +2107,9 @@ public:
         if (MemCheckBlock->getTerminator() == &I)
           continue;
         InstructionCost C =
-            TTI->getInstructionCost(&I, CostHelperObj.getCostKind());
+            TTI->getInstructionCost(&I, CostHelper::getCostKind());
         LLVM_DEBUG(dbgs() << "  " << C << "  for " << I << "\n");
+        dbgs() << "  " << C << "  for " << I << "\n";
         MemCheckCost += C;
       }
 
@@ -3419,7 +3418,7 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   if (!VF.isScalar())
     return CallWideningDecisions.at(std::make_pair(CI, VF)).Cost;
 
-  TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  TTI::TargetCostKind CostKind = CostHelper::getCostKind();
   Type *RetTy = CI->getType();
   if (RecurrenceDescriptor::isFMulAddIntrinsic(CI))
     if (auto RedCost = getReductionPatternCost(CI, VF, RetTy, CostKind))
@@ -3466,7 +3465,7 @@ LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
   IntrinsicCostAttributes CostAttrs(ID, RetTy, Arguments, ParamTys, FMF,
                                     dyn_cast<IntrinsicInst>(CI));
   return TTI.getIntrinsicInstrCost(CostAttrs,
-                                   CostHelperObj.getCostKind());
+                                   CostHelper::getCostKind());
 }
 
 static Type *smallestIntegerVectorType(Type *T1, Type *T2) {
@@ -4064,7 +4063,7 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
          I->getOpcode() == Instruction::URem);
   assert(!isSafeToSpeculativelyExecute(I));
 
-  const TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  const TTI::TargetCostKind CostKind = CostHelper::getCostKind();
 
   // Scalarization isn't legal for scalable vector types
   InstructionCost ScalarizationCost = InstructionCost::getInvalid();
@@ -4088,6 +4087,8 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
     // The cost of insertelement and extractelement instructions needed for
     // scalarization.
     ScalarizationCost += getScalarizationOverhead(I, VF, CostKind);
+
+    llvm::errs() << "Scalarization Cost " << ScalarizationCost << "\n";
 
     // Scale the cost by the probability of executing the predicated blocks.
     // This assumes the predicated block for each vector lane is equally
@@ -5954,7 +5955,7 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
 
     // Compute the scalarization overhead of needed insertelement instructions
     // and phi nodes.
-    TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+    TTI::TargetCostKind CostKind = CostHelper::getCostKind();
     if (isScalarWithPredication(I, VF) && !I->getType()->isVoidTy()) {
       ScalarCost += TTI.getScalarizationOverhead(
           cast<VectorType>(ToVectorTy(I->getType(), VF)),
@@ -5990,6 +5991,8 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
     Discount += VectorCost - ScalarCost;
     ScalarCosts[I] = ScalarCost;
   }
+
+  llvm::errs() << "Discount: " << Discount << "\n";
 
   return Discount;
 }
@@ -6102,7 +6105,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
 
   // Don't pass *I here, since it is scalar but will actually be part of a
   // vectorized loop where the user of it is a vectorized instruction.
-  TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  TTI::TargetCostKind CostKind = CostHelper::getCostKind();
   const Align Alignment = getLoadStoreAlignment(I);
   Cost += VF.getKnownMinValue() * TTI.getMemoryOpCost(I->getOpcode(),
                                                       ValTy->getScalarType(),
@@ -6143,7 +6146,7 @@ LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
   Value *Ptr = getLoadStorePointerOperand(I);
   unsigned AS = getLoadStoreAddressSpace(I);
   int ConsecutiveStride = Legal->isConsecutivePtr(ValTy, Ptr);
-  enum TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  enum TTI::TargetCostKind CostKind = CostHelper::getCostKind();
 
   assert((ConsecutiveStride == 1 || ConsecutiveStride == -1) &&
          "Stride should be 1 or -1 for consecutive memory access");
@@ -6174,7 +6177,7 @@ LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   const Align Alignment = getLoadStoreAlignment(I);
   unsigned AS = getLoadStoreAddressSpace(I);
-  enum TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  enum TTI::TargetCostKind CostKind = CostHelper::getCostKind();
   if (isa<LoadInst>(I)) {
     return TTI.getAddressComputationCost(ValTy) +
            TTI.getMemoryOpCost(Instruction::Load, ValTy, Alignment, AS,
@@ -6204,7 +6207,7 @@ LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
   return TTI.getAddressComputationCost(VectorTy) +
          TTI.getGatherScatterOpCost(
              I->getOpcode(), VectorTy, Ptr, Legal->isMaskRequired(I), Alignment,
-             CostHelperObj.getCostKind(), I);
+             CostHelper::getCostKind(), I);
 }
 
 InstructionCost
@@ -6213,7 +6216,7 @@ LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
   Type *ValTy = getLoadStoreType(I);
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   unsigned AS = getLoadStoreAddressSpace(I);
-  enum TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  enum TTI::TargetCostKind CostKind = CostHelper::getCostKind();
 
   auto Group = getInterleavedAccessGroup(I);
   assert(Group && "Fail to get an interleaved access group.");
@@ -6433,7 +6436,7 @@ LoopVectorizationCostModel::getMemoryInstructionCost(Instruction *I,
     TTI::OperandValueInfo OpInfo = TTI::getOperandInfo(I->getOperand(0));
     return TTI.getAddressComputationCost(ValTy) +
            TTI.getMemoryOpCost(I->getOpcode(), ValTy, Alignment, AS,
-                               CostHelperObj.getCostKind(), OpInfo, I);
+                               CostHelper::getCostKind(), OpInfo, I);
   }
   return getWideningCost(I, VF);
 }
@@ -6723,7 +6726,7 @@ void LoopVectorizationCostModel::setVectorizedCallDecision(ElementCount VF) {
       InstructionCost ScalarCost = InstructionCost::getInvalid();
       InstructionCost VectorCost = InstructionCost::getInvalid();
       InstructionCost IntrinsicCost = InstructionCost::getInvalid();
-      TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+      TTI::TargetCostKind CostKind = CostHelper::getCostKind();
 
       Function *ScalarFunc = CI->getCalledFunction();
       Type *ScalarRetTy = CI->getType();
@@ -6877,7 +6880,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
   if (canTruncateToMinimalBitwidth(I, VF))
     RetTy = IntegerType::get(RetTy->getContext(), MinBWs[I]);
   auto SE = PSE.getSE();
-  TTI::TargetCostKind CostKind = CostHelperObj.getCostKind();
+  TTI::TargetCostKind CostKind = CostHelper::getCostKind();
 
   auto hasSingleCopyAfterVectorization = [this](Instruction *I,
                                                 ElementCount VF) -> bool {
@@ -7205,7 +7208,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
   case Instruction::Call:
     return getVectorCallCost(cast<CallInst>(I), VF);
   case Instruction::ExtractValue:
-    return TTI.getInstructionCost(I, CostHelperObj.getCostKind());
+    return TTI.getInstructionCost(I, CostHelper::getCostKind());
   case Instruction::Alloca:
     // We cannot easily widen alloca to a scalable alloca, as
     // the result would need to be a vector of pointers.
@@ -9847,9 +9850,8 @@ LoopVectorizePass::LoopVectorizePass(LoopVectorizeOptions Opts)
     : InterleaveOnlyWhenForced(Opts.InterleaveOnlyWhenForced ||
                                !EnableLoopInterleaving),
       VectorizeOnlyWhenForced(Opts.VectorizeOnlyWhenForced ||
-                              !EnableLoopVectorization),
-      EnableEnergyAwareness(Opts.EnableEnergyAwareness) {
-                                CostHelperObj.energyAware = EnableEnergyAwareness;
+                              !EnableLoopVectorization) {
+                                dbgs() << EnergyAware << "\n";
                               }
 
 
@@ -10372,7 +10374,11 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
 
 PreservedAnalyses LoopVectorizePass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
+    
     auto &LI = AM.getResult<LoopAnalysis>(F);
+
+    dbgs() << "Empty: " << LI.empty() << "\n";
+
     // There are no loops in the function. Return before computing other expensive
     // analyses.
     if (LI.empty())
