@@ -37,6 +37,15 @@ else
     echo "=> LibSodium already satisfied. Continuing..."
 fi
 
+echo "(4/X) Downloading LZ4"
+[ ! -f "download/lz4.tar.gz" ] && wget -O download/lz4.tar.gz "https://github.com/lz4/lz4/releases/download/v1.10.0/lz4-1.10.0.tar.gz"
+if [ ! -d "src/lz4" ]; then
+    tar -xzf download/lz4.tar.gz -C src/
+    mv src/lz4-1.10.0 src/lz4
+else
+    echo "=> LZ4 already satisfied. Continuing..."
+fi
+
 echo "(5/X) Building SQLite"
 mkdir -p src/.build/sqlite
 make build-sql

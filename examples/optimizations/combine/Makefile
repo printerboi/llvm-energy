@@ -1,16 +1,20 @@
 
 # Code to optimize sqlit3 for demo purposes
 
-sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql
+sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql optimized-to-binary-sql
 
 create-folder-sql:
 	@mkdir -p sqlite
 
 optimize-energy-sql:
-	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -S ../../src/.build/sqlite/default.bc -o sqlite/opt_energy.ll
+	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
 
 optimize-default-sql:
-	../../../build/bin/opt -passes="instcombine" -S ../../src/.build/sqlite/default.bc -o sqlite/opt_default.ll
+	../../../build/bin/opt -passes="instcombine" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
+
+o1-sql:
+	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
+
 
 default-to-binary-sql:
 	../../../build/bin/llvm-as sqlite/opt_default.ll -o sqlite/default.bc
@@ -21,6 +25,17 @@ energy-to-binary-sql:
 	../../../build/bin/llvm-as sqlite/opt_energy.ll -o sqlite/energy.bc
 	../../../build/bin/llc -O0 -filetype=obj sqlite/energy.bc -o sqlite/energy.o
 	../../../build/bin/clang++ -O0 -no-pie sqlite/energy.o -o sqlite/energy
+
+optimized-to-binary-sql:
+	../../../build/bin/opt -O1 -S ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized.ll
+	../../../build/bin/llc -filetype=obj sqlite/optimized.ll -o sqlite/optimized.o
+	../../../build/bin/clang++ -no-pie sqlite/optimized.o -o sqlite/optimized
+
+en-optimized-to-binary-sql:
+	../../../build/bin/opt -O1 -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en.ll
+	../../../build/bin/llc -filetype=obj sqlite/optimized_en.ll -o sqlite/optimized_en.o
+	../../../build/bin/clang++ -no-pie sqlite/optimized_en.o -o sqlite/optimized_en
+# ../../../build/bin/clang++ -O1 -mllvm -instcombine-energy-aware ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en
 
 
 # Code to optimize zlib program for demo purposes
@@ -47,9 +62,17 @@ energy-to-binary-zlib:
 	../../../build/bin/clang -O0 -shared -fPIC zlib/energy.o -o zlib/energy.so
 
 testprog-zlib:
+	../../../build/bin/clang -O0 -fPIC -Xclang -disable-O0-optnone -emit-llvm -S test/zlib.c -o zlib/testprog.ll
+	../../../build/bin/llvm-as zlib/testprog.ll -o zlib/testprog.bc
+	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -S zlib/testprog.bc -o zlib/testprog_energy.ll
+	../../../build/bin/opt -passes="instcombine" -S zlib/testprog.bc -o zlib/testprog_default.ll
+	../../../build/bin/llvm-as zlib/testprog_energy.ll -o zlib/testprog_energy.bc
+	../../../build/bin/llvm-as zlib/testprog_default.ll -o zlib/testprog_default.bc
+	../../../build/bin/llc -O0 -filetype=obj zlib/testprog_energy.bc -o zlib/testprog_energy.o
+	../../../build/bin/llc -O0 -filetype=obj zlib/testprog_default.bc -o zlib/testprog_default.o
 	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/combine/zlib:$LD_LIBRARY_PATH
-	gcc test/zlib.c -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/zlib/energy.so -o zlib/testprog_energy
-	gcc test/zlib.c -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/zlib/default.so -o zlib/testprog_default
+	../../../build/bin/clang -O0 -no-pie zlib/testprog_energy.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/zlib/energy.so -o zlib/testprog_energy
+	../../../build/bin/clang -O0 -no-pie zlib/testprog_default.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/zlib/default.so -o zlib/testprog_default
 
 
 # Code to optimize libsodium program for demo purposes
@@ -77,7 +100,29 @@ energy-to-binary-libsodium:
 
 testprog-libsodium:
 	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium:$LD_LIBRARY_PATH
-	gcc test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/energy.so -o libsodium/testprog_energy
-	gcc test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/default.so -o libsodium/testprog_default
+	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/energy.so -o libsodium/testprog_energy
+	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/default.so -o libsodium/testprog_default
 
 
+# Code to optimize lz4 program for demo purposes
+
+lz4: create-folder-lz4 optimize-energy-lz4 optimize-default-lz4 default-to-binary-lz4 energy-to-binary-lz4
+
+create-folder-lz4:
+	@mkdir -p lz4
+
+optimize-energy-lz4:
+	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -S ../../src/.build/lz4/lz4.bc -o lz4/opt_energy.ll
+
+optimize-default-lz4:
+	../../../build/bin/opt -passes="instcombine" -S ../../src/.build/lz4/lz4.bc -o lz4/opt_default.ll
+
+default-to-binary-lz4:
+	../../../build/bin/llvm-as lz4/opt_default.ll -o lz4/default.bc
+	../../../build/bin/llc -O0 -filetype=obj lz4/default.bc -o lz4/default.o
+	../../../build/bin/clang++ -O0 -no-pie lz4/default.o -o lz4/default
+
+energy-to-binary-lz4:
+	../../../build/bin/llvm-as lz4/opt_energy.ll -o lz4/energy.bc
+	../../../build/bin/llc -O0 -filetype=obj lz4/energy.bc -o lz4/energy.o
+	../../../build/bin/clang++ -O0 -no-pie lz4/energy.o -o lz4/energy

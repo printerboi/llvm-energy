@@ -1168,48 +1168,46 @@ public:
      * Might be the dirtiest implementation ever, but will be currently the fastest approach
      */
 
-    if(CostKind == TTI::TCK_Energy) {
-      //dbgs() << " Energy called " << "\n";
+    if (CostKind == TTI::TCK_Energy) {
       switch (Opcode) {
-        case llvm::Instruction::Add:     return 0.004056653715470496f;
-        case llvm::Instruction::FAdd:    return 0.003215064520134321f;
-        case llvm::Instruction::And:     return 0.004761914637991943f;
-        case llvm::Instruction::Call:    return 0.005270144714540216f;
-        case llvm::Instruction::FDiv:    return 0.00566790177417064f;
-        case llvm::Instruction::ICmp: {    // eq, ne, sge, sgt, sle, slt, uge, ugt, ule, ult
-          // Discrimination of ICMP predicated
+        case llvm::Instruction::Add:     return 0.00015730982992697568f;
+        case llvm::Instruction::FAdd:    return 0.00026017022013070587f;
+        case llvm::Instruction::And:     return 0.00020326970946359796f;
+        case llvm::Instruction::Call:    return 0.0005026048907825278f;
+        case llvm::Instruction::FDiv:    return 0.0006837626965947967f;
+        case llvm::Instruction::ICmp: {
           const auto *CI = cast<ICmpInst>(U);
           switch (CI->getPredicate()) {
-              case CmpInst::ICMP_EQ:  return 0.009826822539574974f;
-              case CmpInst::ICMP_NE:  return 0.0037112045854093f;
-              case CmpInst::ICMP_SGE: return 0.004643225586922907f;
-              case CmpInst::ICMP_SGT: return 0.0042676653691819805f;
-              case CmpInst::ICMP_SLE: return 0.0005085094798499001f;
-              case CmpInst::ICMP_SLT: return 0.0037156882981993974f;
-              case CmpInst::ICMP_UGE: return 0.006861000502570012f;
-              case CmpInst::ICMP_UGT: return 0.002272979800627496f;
-              case CmpInst::ICMP_ULE: return 0.004732641166987267f;
-              case CmpInst::ICMP_ULT: return 0.0034397551932233844f;
-              default:                return 0.0f; // other predicates not profiled
+            case CmpInst::ICMP_EQ:  return 0.0005574295711568943f;
+            case CmpInst::ICMP_NE:  return 0.00046666151505830866f;
+            case CmpInst::ICMP_SGE: return 0.0008668363238638933f;
+            case CmpInst::ICMP_SGT: return 0.0009853766552638567f;
+            case CmpInst::ICMP_SLE: return 0.0009285947256007995f;
+            case CmpInst::ICMP_SLT: return 0.0006828777161122339f;
+            case CmpInst::ICMP_UGE: return 0.0008342069743361609f;
+            case CmpInst::ICMP_UGT: return 0.0010797343220316363f;
+            case CmpInst::ICMP_ULE: return 0.0011469307123702817f;
+            case CmpInst::ICMP_ULT: return 0.0011406456879742045f;
+            default:                return 0.0f;
           }
         }
-        case llvm::Instruction::Mul:     return 0.004450678453739913f;
-        case llvm::Instruction::FMul:    return 0.005417762335630016f;
-        case llvm::Instruction::Or:      return 0.0032789204737165567f;
-        case llvm::Instruction::FRem:    return 0.006792051100529786f;
-        case llvm::Instruction::SDiv:    return 0.0030756444563571975f;
-        case llvm::Instruction::Select:  return 0.0043343113253657695f;
-        case llvm::Instruction::SExt:    return 0.00516874998423307f;
-        case llvm::Instruction::Shl:     return 0.003504652008703313f;
-        case llvm::Instruction::LShr:    return 0.0040481605287430444f;
-        case llvm::Instruction::SRem:    return 0.0014319510693901402f;
-        case llvm::Instruction::Sub:     return 0.000001000000000001f;
-        case llvm::Instruction::FSub:    return 0.001714184776267634f;
-        case llvm::Instruction::UDiv:    return 0.003435025122587622f;
-        case llvm::Instruction::URem:    return 0.0006336407885816214f;
-        case llvm::Instruction::Xor:     return 0.0032304865212695252f;
-        case llvm::Instruction::ZExt:    return 0.004224743673530519f;
-        default:                         return 0.0f; // Unhandled opcode
+        case llvm::Instruction::Mul:     return 0.00048336198650696105f;
+        case llvm::Instruction::FMul:    return 0.0008223163851415645f;
+        case llvm::Instruction::Or:      return 0.000504927669792099f;
+        case llvm::Instruction::FRem:    return 0.0006754514535843997f;
+        case llvm::Instruction::SDiv:    return 0.0007221363664161075f;
+        case llvm::Instruction::Select:  return 0.0006760911190368674f;
+        case llvm::Instruction::SExt:    return 0.0007153450840501757f;
+        case llvm::Instruction::Shl:     return 0.001441324098929827f;
+        case llvm::Instruction::LShr:    return 0.0008164376401641645f;
+        case llvm::Instruction::SRem:    return 0.0010320161793438039f;
+        case llvm::Instruction::Sub:     return 0.0011079961639554256f;
+        case llvm::Instruction::FSub:    return 0.0007817724240223936f;
+        case llvm::Instruction::UDiv:    return 0.0008984127159968117f;
+        case llvm::Instruction::URem:    return 0.001274347773604266f;
+        case llvm::Instruction::Xor:     return 0.001102808607214071f;
+        case llvm::Instruction::ZExt:    return 0.0012602213144566748f;
+        default:                         return 0.0f;
       }
     }
 

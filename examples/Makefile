@@ -4,7 +4,7 @@ LIBSODIUM_INCLUDES=-Isrc/libsodium/src/libsodium/include/sodium -Isrc/libsodium/
 build-sql:
 	../build/bin/clang -O0 -Xclang -disable-O0-optnone -emit-llvm -S src/sqlite/sqlite3.c -o src/.build/sqlite/sqlite3.ll
 	../build/bin/clang -O0 -Xclang -disable-O0-optnone -emit-llvm -S src/sqlite/shell.c -o src/.build/sqlite/shell.ll
-	../build/bin/llvm-link src/.build/sqlite/sqlite3.ll src/.build/sqlite/shell.ll -o src/.build/sqlite/default.bc
+	../build/bin/llvm-link src/.build/sqlite/sqlite3.ll src/.build/sqlite/shell.ll -o src/.build/sqlite/sqlite.bc
 
 build-zlib:
 	../build/bin/clang -O0 -fPIC -Xclang -disable-O0-optnone -emit-llvm -S src/zlib/adler32.c  -o src/.build/zlib/adler32.ll
@@ -31,3 +31,16 @@ build-libsodium:
 		../build/bin/clang -O0 -fPIC -Xclang -disable-O0-optnone -emit-llvm -S $$file $(LIBSODIUM_INCLUDES) -o $$out; \
 	done
 	../build/bin/llvm-link src/.build/libsodium/*.ll -o src/.build/libsodium/libsodium.bc
+
+build-lz4:
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/lib/lz4.c         -o src/.build/lz4/lz4.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/lib/lz4hc.c       -o src/.build/lz4/lz4hc.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/lib/lz4frame.c    -o src/.build/lz4/lz4frame.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/lib/xxhash.c      -o src/.build/lz4/xxhash.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/lz4io.c      -o src/.build/lz4/lz4io.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/bench.c      -o src/.build/lz4/bench.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/lz4cli.c     -o src/.build/lz4/lz4cli.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/timefn.c     -o src/.build/lz4/timefn.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/threadpool.c -o src/.build/lz4/threadpool.ll
+	../build/bin/clang -O0 -fPIC -I src/lz4/lib -Xclang -disable-O0-optnone -emit-llvm -S src/lz4/programs/lorem.c      -o src/.build/lz4/lorem.ll
+	../build/bin/llvm-link src/.build/lz4/*.ll -o src/.build/lz4/lz4.bc
