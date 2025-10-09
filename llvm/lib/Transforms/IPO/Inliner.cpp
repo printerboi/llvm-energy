@@ -26,6 +26,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/EnergyAwareInlineAdvisor.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -144,6 +145,10 @@ static cl::opt<CallSiteFormat::Format> CGSCCInlineReplayFormat(
                    "<Line Number>:<Column Number>.<Discriminator> (default)")),
     cl::desc("How cgscc inline replay file is formatted"), cl::Hidden);
 
+static cl::opt<bool>
+EnergyAware("inline-energy-aware", cl::init(false),
+             cl::desc("..."));
+
 /// Return true if the specified inline history ID
 /// indicates an inline history that includes the specified function.
 static bool inlineHistoryIncludes(
@@ -162,10 +167,20 @@ static bool inlineHistoryIncludes(
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                         FunctionAnalysisManager &FAM, Module &M) {
+
+  if(EnergyAware) {
+    //dbgs() << "Trying to create an EAAdvisor...\n";
+    OwnedAdvisor = std::make_unique<EnergyAwareInlineAdvisor>(
+        M, FAM, getInlineParams(),
+        InlineContext{LTOPhase, InlinePass::CGSCCInliner});
+    return *OwnedAdvisor;
+  }
+  
   if (OwnedAdvisor)
     return *OwnedAdvisor;
 
   auto *IAA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
+
   if (!IAA) {
     // It should still be possible to run the inliner as a stand-alone SCC pass,
     // for test scenarios. In that case, we default to the
@@ -200,6 +215,7 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
 PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                    CGSCCAnalysisManager &AM, LazyCallGraph &CG,
                                    CGSCCUpdateResult &UR) {
+
   const auto &MAMProxy =
       AM.getResult<ModuleAnalysisManagerCGSCCProxy>(InitialC, CG);
   bool Changed = false;
@@ -351,8 +367,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-      std::unique_ptr<InlineAdvice> Advice =
-          Advisor.getAdvice(*CB, OnlyMandatory);
+      std::unique_ptr<InlineAdvice> Advice = Advisor.getAdvice(*CB, OnlyMandatory);
+
+      //llvm::outs() << CB->getCaller()->getName() << " calls " << CB->getCalledFunction()->getName() << " advice: " << (Advice->isInliningRecommended()) << "\n";
+
 
       // Check whether we want to inline this callsite.
       if (!Advice)
@@ -602,6 +620,9 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
                                                 ModuleAnalysisManager &MAM) {
   auto &IAA = MAM.getResult<InlineAdvisorAnalysis>(M);
+
+  llvm::outs() << "check this out" << "\n";
+
   if (!IAA.tryCreate(Params, Mode,
                      {CGSCCInlineReplayFile,
                       CGSCCInlineReplayScope,

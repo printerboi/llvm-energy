@@ -1145,22 +1145,24 @@ public:
     // Handle non-intrinsic calls, invokes, and callbr.
     // FIXME: Unlikely to be true for anything but CodeSize.
     auto *CB = dyn_cast<CallBase>(U);
-    if (CB && !isa<IntrinsicInst>(U)) {
-      if (const Function *F = CB->getCalledFunction()) {
-        if (!TargetTTI->isLoweredToCall(F))
-          return TTI::TCC_Basic; // Give a basic cost if it will be lowered
+    if(CostKind != TTI::TCK_Energy){
+      if (CB && !isa<IntrinsicInst>(U)) {
+        if (const Function *F = CB->getCalledFunction()) {
+          if (!TargetTTI->isLoweredToCall(F))
+            return TTI::TCC_Basic; // Give a basic cost if it will be lowered
 
-        return TTI::TCC_Basic * (F->getFunctionType()->getNumParams() + 1);
+          return TTI::TCC_Basic * (F->getFunctionType()->getNumParams() + 1);
+        }
+        // For indirect or other calls, scale cost by number of arguments.
+        return TTI::TCC_Basic * (CB->arg_size() + 1);
       }
-      // For indirect or other calls, scale cost by number of arguments.
-      return TTI::TCC_Basic * (CB->arg_size() + 1);
     }
 
     Type *Ty = U->getType();
     unsigned Opcode = Operator::getOpcode(U);
 
     //llvm::errs() << " OP: " << Opcode << "\n";
-
+    
     /**
      * We should catch the case that the caller requests the TCK_Energy costtype.
      * In this case we open another switch block, where we relay the request to
@@ -1209,6 +1211,7 @@ public:
         case llvm::Instruction::ZExt:    return 0.0012602213144566748f;
         default:                         return 0.0f;
       }
+      return 0.0f;
     }
 
 

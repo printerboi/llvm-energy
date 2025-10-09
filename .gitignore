@@ -76,3 +76,9 @@ examples/download/
 examples/src
 examples/optimizations/combine/*/
 !examples/optimizations/combine/test
+
+examples/optimizations/inline/*/
+!examples/optimizations/inline/test
+
+examples/optimizations/both/*/
+!examples/optimizations/both/test
