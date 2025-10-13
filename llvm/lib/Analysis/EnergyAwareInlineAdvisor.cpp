@@ -20,7 +20,7 @@ EnergyAwareInlineAdvisor::EnergyAwareInlineAdvisor(Module &M,
     : DefaultInlineAdvisor(M, FAM, Params, IC), FAM(FAM) {}
 
 std::unique_ptr<InlineAdvice> EnergyAwareInlineAdvisor::getAdviceImpl(CallBase &CB) {
-  //llvm::outs() << "I WAS CALLED" << "\n";
+  //llvm::outs() << "I WAS CALLED" << "\n";    
 
   Function *Caller = CB.getFunction();
   Function *Callee = CB.getCalledFunction();
@@ -29,9 +29,17 @@ std::unique_ptr<InlineAdvice> EnergyAwareInlineAdvisor::getAdviceImpl(CallBase &
   if (!Callee) {
     // Build DefaultInlineAdvice: Advisor* = this, optional InlineCost = none,
     // ORE = getCallerORE(CB), EmitRemarks = false (or true if you want remarks).
-    return std::make_unique<DefaultInlineAdvice>(this, CB, std::optional<InlineCost>{},
-                                                 getCallerORE(CB), /*EmitRemarks=*/false);
+    return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), false);
   }
+
+  if (!Callee || Callee->isDeclaration() || Callee->isIntrinsic()) {
+    return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), false);
+  }
+
+  if (CB.getCaller() == Callee){
+    return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), false);
+  }
+  
 
   // Query per-function TTI if you want to use it in cost model.
   TargetTransformInfo &CallerTTI = FAM.getResult<TargetIRAnalysis>(*Caller);
@@ -39,33 +47,68 @@ std::unique_ptr<InlineAdvice> EnergyAwareInlineAdvisor::getAdviceImpl(CallBase &
   (void)CallerTTI;
   (void)CalleeTTI;
 
-  InstructionCost CallerEnergy = computeFunctionEnergy(Caller, &CalleeTTI);
-  InstructionCost CalleeEnergy = computeFunctionEnergy(Callee, &CalleeTTI);
-  InstructionCost engWhenInlined = estimateInlinedEnergy(Caller, &CallerTTI, Callee, &CalleeTTI);
-  InstructionCost sum = CallerEnergy + CalleeEnergy;
+  if(callcost <= 0){
+    SmallVector<Value *, 4> DummyArgs;
+    for (Type *ParamTy : Callee->getFunctionType()->params()) {
+      // Use UndefValue for simplicity
+      DummyArgs.push_back(UndefValue::get(ParamTy));
+    }
 
+    // Create a temporary call instruction (not inserted into any block)
+    CallInst *TmpCall = CallInst::Create(Callee, DummyArgs);
+
+    callcost = CalleeTTI.getInstructionCost(TmpCall, TTI::TCK_Energy);
+    delete TmpCall;
+  }
+
+  // Query function costs
+  InstructionCost CallerEnergy = 0.0;
+  InstructionCost CalleeEnergy = 0.0;
+
+  StringRef CallerName = Caller->getName();
+  StringRef CalleeName = Callee->getName();
+
+  // Check if caller is cached
+  if(this->callercache.find(CallerName) == this->callercache.end()){
+    CallerEnergy = computeFunctionEnergy(Caller, &CalleeTTI);
+    this->callercache[CallerName] = CallerEnergy;
+  }else{
+    CallerEnergy = this->callercache[CallerName];
+  }
+
+  // Check if callee is cached
+  if(this->calleecache.find(CalleeName) == this->calleecache.end()){
+    CalleeEnergy = computeFunctionEnergy(Callee, &CalleeTTI);
+    this->calleecache[CalleeName] = CalleeEnergy;
+  }else{
+    CalleeEnergy = this->calleecache[CalleeName];
+  }
+  
+  InstructionCost engWhenInlined = estimateInlinedEnergy(CallerEnergy, CalleeEnergy);
+  InstructionCost sum = CallerEnergy + CalleeEnergy;
   InstructionCost EnergyGain = sum - engWhenInlined;
 
-  bool ShouldInline = EnergyGain > 2.0e-2;
+  bool si = EnergyGain > 7.6e-02;
+  //bool si = EnergyGain > 0.0;
 
-/*   dbgs() << "Energy inline decision for call '"
-                    << CB.getCalledFunction()->getName() << "':\n"
-                    << "  CallerEnergy = " << CallerEnergy << "\n"
-                    << "  CalleeEnergy = " << CalleeEnergy << "\n"
-                    << "  Sum = " << sum  << "\n"
-                    << "  Inline = " << engWhenInlined << "\n"
-                    << "  Diff = " << sum - engWhenInlined << "\n"
-                    << "  EstimatedGain = " << EnergyGain.getValue() << "\n"
-                    << "  ShouldInline = " << ShouldInline << "\n"; */
+    /* dbgs() << "Energy inline decision for call '"
+                  << CB.getCalledFunction()->getName() << "':\n"
+                  << "  CallerEnergy = " << CallerEnergy << "\n"
+                  << "  CalleeEnergy = " << CalleeEnergy << "\n"
+                  << "  Sum = " << sum  << "\n"
+                  << "  Inline = " << engWhenInlined << "\n"
+                  << "  Diff = " << sum - engWhenInlined << "\n"
+                  << "  EstimatedGain = " << EnergyGain.getValue() << "\n"
+                  << "  ShouldInline = " << si << "\n"; */
 
-
-    InlineCost IC = ShouldInline
+  InlineCost IC = si
                         ? InlineCost::getAlways("energy heuristic: profitable")
                         : InlineCost::getNever("energy heuristic: unprofitable");
 
+
   // Create DefaultInlineAdvice with no InlineCost (std::nullopt) and the ORE from the advisor.
-  return std::make_unique<DefaultInlineAdvice>(this, CB, IC,
-                                               getCallerORE(CB), /*EmitRemarks=*/true);
+  //return std::make_unique<DefaultInlineAdvice>(this, CB, IC, getCallerORE(CB), false);
+  return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), si);
 }
 
 InstructionCost EnergyAwareInlineAdvisor::computeFunctionEnergy(Function *F, TargetTransformInfo *TTI) {
@@ -86,22 +129,7 @@ InstructionCost EnergyAwareInlineAdvisor::computeFunctionEnergy(Function *F, Tar
   return Total;
 }
 
-InstructionCost EnergyAwareInlineAdvisor::estimateInlinedEnergy(Function *Caller, TargetTransformInfo *CallerTTI, Function *Callee, TargetTransformInfo *CalleeTTI) {
+InstructionCost EnergyAwareInlineAdvisor::estimateInlinedEnergy(InstructionCost callercost, InstructionCost calleecost) {
   // Simple heuristic: assume inlining saves some fraction of callee's energy.
-
-  SmallVector<Value *, 4> DummyArgs;
-  for (Type *ParamTy : Callee->getFunctionType()->params()) {
-    // Use UndefValue for simplicity
-    DummyArgs.push_back(UndefValue::get(ParamTy));
-  }
-
-  if(callcost <= 0){
-    // Create a temporary call instruction (not inserted into any block)
-    CallInst *TmpCall = CallInst::Create(Callee, DummyArgs);
-
-    callcost = CalleeTTI->getInstructionCost(TmpCall, TTI::TCK_Energy);
-    delete TmpCall;
-  }
-  
-  return computeFunctionEnergy(Caller, CallerTTI) + 0.8 * computeFunctionEnergy(Callee, CalleeTTI) - callcost;
+  return callercost + 0.8 * calleecost - callcost;
 }

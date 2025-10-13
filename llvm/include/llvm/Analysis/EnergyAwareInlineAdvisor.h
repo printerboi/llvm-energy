@@ -5,8 +5,10 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/IR/Module.h"
 #include <memory>
+#include <unordered_set>
 
 namespace llvm {
 
@@ -31,9 +33,18 @@ private:
   InstructionCost computeFunctionEnergy(Function *F, TargetTransformInfo *TTI);
 
   /// Estimate the energy after inlining (placeholder heuristic).
-  InstructionCost estimateInlinedEnergy(Function *Caller, TargetTransformInfo *CallerTTI, Function *Callee, TargetTransformInfo *CalleeTTI);
+  InstructionCost estimateInlinedEnergy(InstructionCost callercost, InstructionCost calleecost);
 
   InstructionCost callcost = -1.0;
+
+  std::map<llvm::StringRef, InstructionCost> calleecache;
+  std::map<llvm::StringRef, InstructionCost> callercache;
+
+  std::unordered_map<std::string, bool> decisionCache;
+
+  std::map<llvm::StringRef, bool> analyzedCallSites;  // Track analyzed call sites
+  size_t analysisCount;                                // Count total analyses
+  size_t maxAnalysisCount;                            // Maximum analyses allowed
 };
 
 } // namespace llvm

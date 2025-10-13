@@ -167,6 +167,10 @@ static bool inlineHistoryIncludes(
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                         FunctionAnalysisManager &FAM, Module &M) {
+  
+  if (OwnedAdvisor)
+    return *OwnedAdvisor;
+
 
   if(EnergyAware) {
     //dbgs() << "Trying to create an EAAdvisor...\n";
@@ -175,9 +179,6 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
         InlineContext{LTOPhase, InlinePass::CGSCCInliner});
     return *OwnedAdvisor;
   }
-  
-  if (OwnedAdvisor)
-    return *OwnedAdvisor;
 
   auto *IAA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
 

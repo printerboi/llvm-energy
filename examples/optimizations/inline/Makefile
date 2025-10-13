@@ -1,7 +1,7 @@
 
 # Code to optimize sqlit3 for demo purposes
 
-sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql optimized-to-binary-sql
+sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql
 
 create-folder-sql:
 	@mkdir -p sqlite
@@ -11,9 +11,6 @@ optimize-energy-sql:
 
 optimize-default-sql:
 	../../../build/bin/opt -passes="inline" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
-
-o1-sql:
-	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
 
 
 default-to-binary-sql:
@@ -31,16 +28,10 @@ optimized-to-binary-sql:
 	../../../build/bin/llc -filetype=obj sqlite/optimized.ll -o sqlite/optimized.o
 	../../../build/bin/clang++ -no-pie sqlite/optimized.o -o sqlite/optimized
 
-en-optimized-to-binary-sql:
-	../../../build/bin/opt -O1 -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en.ll
-	../../../build/bin/llc -filetype=obj sqlite/optimized_en.ll -o sqlite/optimized_en.o
-	../../../build/bin/clang++ -no-pie sqlite/optimized_en.o -o sqlite/optimized_en
-# ../../../build/bin/clang++ -O1 -mllvm -instcombine-energy-aware ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en
-
 
 # Code to optimize zlib program for demo purposes
 
-zlib: create-folder-zlib optimize-energy-zlib optimize-default-zlib default-to-binary-zlib energy-to-binary-zlib
+zlib: create-folder-zlib optimize-energy-zlib optimize-default-zlib default-to-binary-zlib energy-to-binary-zlib testprog-zlib
 
 create-folder-zlib:
 	@mkdir -p zlib
@@ -70,14 +61,14 @@ testprog-zlib:
 	../../../build/bin/llvm-as zlib/testprog_default.ll -o zlib/testprog_default.bc
 	../../../build/bin/llc -O0 -filetype=obj zlib/testprog_energy.bc -o zlib/testprog_energy.o
 	../../../build/bin/llc -O0 -filetype=obj zlib/testprog_default.bc -o zlib/testprog_default.o
-	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/inlining/zlib:$LD_LIBRARY_PATH
-	../../../build/bin/clang -O0 -no-pie zlib/testprog_energy.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/inlining/zlib/energy.so -o zlib/testprog_energy
-	../../../build/bin/clang -O0 -no-pie zlib/testprog_default.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/inlining/zlib/default.so -o zlib/testprog_default
+	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/inline/zlib:$LD_LIBRARY_PATH
+	../../../build/bin/clang -O0 -no-pie zlib/testprog_energy.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/inline/zlib/energy.so -o zlib/testprog_energy
+	../../../build/bin/clang -O0 -no-pie zlib/testprog_default.o -I../../src/zlib /home/max/Documents/repos/llvm-energy/examples/optimizations/inline/zlib/default.so -o zlib/testprog_default
 
 
 # Code to optimize libsodium program for demo purposes
 
-libsodium: create-folder-libsodium optimize-energy-libsodium optimize-default-libsodium default-to-binary-libsodium energy-to-binary-libsodium
+libsodium: create-folder-libsodium optimize-energy-libsodium optimize-default-libsodium default-to-binary-libsodium energy-to-binary-libsodium testprog-libsodium
 
 create-folder-libsodium:
 	@mkdir -p libsodium
@@ -99,9 +90,9 @@ energy-to-binary-libsodium:
 	../../../build/bin/clang -O0 -shared -fPIC libsodium/energy.o -o libsodium/energy.so
 
 testprog-libsodium:
-	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium:$LD_LIBRARY_PATH
-	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/energy.so -o libsodium/testprog_energy
-	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/combine/libsodium/default.so -o libsodium/testprog_default
+	export LD_LIBRARY_PATH=/home/max/Documents/repos/llvm-energy/examples/optimizations/inline/libsodium:$LD_LIBRARY_PATH
+	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/inline/libsodium/energy.so -o libsodium/testprog_energy
+	../../../build/bin/clang -O0 test/libsodium.c -I../../src/libsodium/src/libsodium/include /home/max/Documents/repos/llvm-energy/examples/optimizations/inline/libsodium/default.so -o libsodium/testprog_default
 
 
 # Code to optimize lz4 program for demo purposes
@@ -126,3 +117,28 @@ energy-to-binary-lz4:
 	../../../build/bin/llvm-as lz4/opt_energy.ll -o lz4/energy.bc
 	../../../build/bin/llc -O0 -filetype=obj lz4/energy.bc -o lz4/energy.o
 	../../../build/bin/clang++ -O0 -no-pie lz4/energy.o -o lz4/energy
+
+
+# Code to optimize lua for demo purposes
+
+lua: create-folder-lua optimize-default-lua optimize-energy-lua default-to-binary-lua energy-to-binary-lua
+
+create-folder-lua:
+	@mkdir -p lua
+
+optimize-energy-lua:
+	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/lua/lua.bc -o lua/opt_energy.ll
+
+optimize-default-lua:
+	../../../build/bin/opt -passes="inline" -S ../../src/.build/lua/lua.bc -o lua/opt_default.ll
+
+default-to-binary-lua:
+	../../../build/bin/llvm-as lua/opt_default.ll -o lua/default.bc
+	../../../build/bin/llc -O0 -filetype=obj lua/default.bc -o lua/default.o
+	../../../build/bin/clang++ -O0 -g -no-pie lua/default.o -o lua/default
+
+energy-to-binary-lua:
+	../../../build/bin/llvm-as lua/opt_energy.ll -o lua/energy.bc
+	../../../build/bin/llc -O0 -filetype=obj lua/energy.bc -o lua/energy.o
+	../../../build/bin/clang++ -O0 -g -no-pie lua/energy.o -o lua/energy
+

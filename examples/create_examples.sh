@@ -46,6 +46,15 @@ else
     echo "=> LZ4 already satisfied. Continuing..."
 fi
 
+echo "(5/X) Downloading lua"
+[ ! -f "download/lua.tar.gz" ] && wget -O download/lua.tar.gz "https://www.lua.org/ftp/lua-5.4.8.tar.gz"
+if [ ! -d "src/lua" ]; then
+    tar -xzf download/lua.tar.gz -C src/
+    mv src/lua-5.4.8 src/lua
+else
+    echo "=> lua already satisfied. Continuing..."
+fi
+
 echo "(5/X) Building SQLite"
 mkdir -p src/.build/sqlite
 make build-sql
@@ -57,3 +66,7 @@ make build-zlib
 echo "(7/X) Building Libsodium"
 mkdir -p src/.build/libsodium
 make build-libsodium
+
+echo "(8/X) Building lua"
+mkdir -p src/.build/lua
+make build-lua
