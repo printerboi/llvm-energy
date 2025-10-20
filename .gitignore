@@ -82,3 +82,6 @@ examples/optimizations/inline/*/
 
 examples/optimizations/both/*/
 !examples/optimizations/both/test
+
+examples/optimizations/instsimplify/*/
+!examples/optimizations/instsimplify/test

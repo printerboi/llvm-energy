@@ -1,19 +1,16 @@
 
 # Code to optimize sqlit3 for demo purposes
 
-sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql optimized-to-binary-sql
+sqlite: create-folder-sql optimize-energy-sql optimize-default-sql default-to-binary-sql energy-to-binary-sql
 
 create-folder-sql:
 	@mkdir -p sqlite
 
 optimize-energy-sql:
-	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
+	../../../build/bin/opt -passes="instcombine" -instcombine-energy-aware -stats -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
 
 optimize-default-sql:
-	../../../build/bin/opt -passes="instcombine" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
-
-o1-sql:
-	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
+	../../../build/bin/opt -passes="instcombine" -stats -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
 
 
 default-to-binary-sql:
@@ -25,17 +22,6 @@ energy-to-binary-sql:
 	../../../build/bin/llvm-as sqlite/opt_energy.ll -o sqlite/energy.bc
 	../../../build/bin/llc -O0 -filetype=obj sqlite/energy.bc -o sqlite/energy.o
 	../../../build/bin/clang++ -O0 -no-pie sqlite/energy.o -o sqlite/energy
-
-optimized-to-binary-sql:
-	../../../build/bin/opt -O1 -S ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized.ll
-	../../../build/bin/llc -filetype=obj sqlite/optimized.ll -o sqlite/optimized.o
-	../../../build/bin/clang++ -no-pie sqlite/optimized.o -o sqlite/optimized
-
-en-optimized-to-binary-sql:
-	../../../build/bin/opt -O1 -instcombine-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en.ll
-	../../../build/bin/llc -filetype=obj sqlite/optimized_en.ll -o sqlite/optimized_en.o
-	../../../build/bin/clang++ -no-pie sqlite/optimized_en.o -o sqlite/optimized_en
-# ../../../build/bin/clang++ -O1 -mllvm -instcombine-energy-aware ../../src/.build/sqlite/sqlite.bc -o sqlite/optimized_en
 
 
 # Code to optimize zlib program for demo purposes

@@ -1083,7 +1083,7 @@ Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
           llvm::Instruction *oInst = &I;
           llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
           llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
-          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
 
           if( newCost < oldCost ) {
             return V;
@@ -1107,7 +1107,7 @@ Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
           llvm::Instruction *oInst = &I;
           llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
           llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
-          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
 
           if( newCost < oldCost ) {
             return V;
@@ -1131,7 +1131,7 @@ Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
           llvm::Instruction *oInst = &I;
           llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
           llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
-          dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
 
           if( newCost < oldCost ) {
             return V;
@@ -4558,12 +4558,12 @@ bool InstCombinerImpl::run() {
       InstructionCost oCost = TTI.getInstructionCost(I, TTI::TCK_Energy);
 
       if (nCost < oCost && EnergyAware){
-        dbgs() << "Benefit $$$" << ( ( nCost < oCost ) || !EnergyAware ) << "\n";
+        //dbgs() << "Benefit $$$" << ( ( nCost < oCost ) || !EnergyAware ) << "\n";
       }
 
       // Should we replace the old instruction with a new one?
       if (Result != I  ) {
-        dbgs() << "Replacing..." << "\n";
+        //dbgs() << "Replacing..." << "\n";
 
         LLVM_DEBUG(dbgs() << "IC: Old = " << *I << '\n'
                           << "    New = " << *Result << '\n');
@@ -4920,7 +4920,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-      dbgs() << F.getName() << "\n";
+      //dbgs() << F.getName() << "\n";
 
       Options.setVerifyFixpoint(false);
 

@@ -23,9 +23,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "instsimplify"
 
+static cl::opt<bool>
+EnergyAware("instsimplify-energy-aware", cl::init(false),
+             cl::desc("..."));
+
 STATISTIC(NumSimplified, "Number of redundant instructions removed");
 
-static bool runImpl(Function &F, const SimplifyQuery &SQ) {
+static bool runImpl(Function &F, const SimplifyQuery &SQ, const TargetTransformInfo &TTI) {
   SmallPtrSet<const Instruction *, 8> S1, S2, *ToSimplify = &S1, *Next = &S2;
   bool Changed = false;
 
@@ -51,14 +55,35 @@ static bool runImpl(Function &F, const SimplifyQuery &SQ) {
         } else if (!I.use_empty()) {
           if (Value *V = simplifyInstruction(&I, SQ)) {
             // Mark all uses for resimplification next time round the loop.
-            for (User *U : I.users())
-              Next->insert(cast<Instruction>(U));
-            I.replaceAllUsesWith(V);
-            ++NumSimplified;
-            Changed = true;
-            // A call can get simplified, but it may not be trivially dead.
-            if (isInstructionTriviallyDead(&I))
-              DeadInstsInBB.push_back(&I);
+
+            bool benefit = false;
+            llvm::InstructionCost originalCost = TTI.getInstructionCost(&I, TTI::TCK_Energy);
+            int code = I.getOpcode();
+
+            
+            if(auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)){
+              llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+
+              if(newCost < originalCost){
+                llvm::InstructionCost gain = originalCost - newCost;
+                dbgs() << gain << " Replacing " << I.getOpcodeName() << " with " << nInst->getOpcodeName() << "\n";
+
+                benefit = true;
+              }
+            }else{
+              benefit = true;
+            }
+
+            if(benefit || !EnergyAware) {
+              for (User *U : I.users())
+                Next->insert(cast<Instruction>(U));
+              I.replaceAllUsesWith(V);
+              ++NumSimplified;
+              Changed = true;
+              // A call can get simplified, but it may not be trivially dead.
+              if (isInstructionTriviallyDead(&I))
+                DeadInstsInBB.push_back(&I);
+            }
           }
         }
       }
@@ -101,7 +126,10 @@ struct InstSimplifyLegacyPass : public FunctionPass {
         &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     const DataLayout &DL = F.getParent()->getDataLayout();
     const SimplifyQuery SQ(DL, TLI, DT, AC);
-    return runImpl(F, SQ);
+
+    const TargetTransformInfo &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+
+    return runImpl(F, SQ, TTI);
   }
 };
 } // namespace
@@ -127,7 +155,10 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   const DataLayout &DL = F.getParent()->getDataLayout();
   const SimplifyQuery SQ(DL, &TLI, &DT, &AC);
-  bool Changed = runImpl(F, SQ);
+
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);                                        
+
+  bool Changed = runImpl(F, SQ, TTI);
   if (!Changed)
     return PreservedAnalyses::all();
 

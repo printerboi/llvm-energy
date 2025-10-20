@@ -622,8 +622,6 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
                                                 ModuleAnalysisManager &MAM) {
   auto &IAA = MAM.getResult<InlineAdvisorAnalysis>(M);
 
-  llvm::outs() << "check this out" << "\n";
-
   if (!IAA.tryCreate(Params, Mode,
                      {CGSCCInlineReplayFile,
                       CGSCCInlineReplayScope,

@@ -7,10 +7,10 @@ create-folder-sql:
 	@mkdir -p sqlite
 
 optimize-energy-sql:
-	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
+	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_energy.ll
 
 optimize-default-sql:
-	../../../build/bin/opt -passes="inline" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
+	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
 
 
 default-to-binary-sql:
@@ -37,10 +37,10 @@ create-folder-zlib:
 	@mkdir -p zlib
 
 optimize-energy-zlib:
-	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_energy.ll
+	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_energy.ll
 
 optimize-default-zlib:
-	../../../build/bin/opt -passes="inline" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_default.ll
+	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_default.ll
 
 default-to-binary-zlib:
 	../../../build/bin/llvm-as zlib/opt_default.ll -o zlib/default.bc
@@ -74,10 +74,10 @@ create-folder-libsodium:
 	@mkdir -p libsodium
 
 optimize-energy-libsodium:
-	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_energy.ll
+	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_energy.ll
 
 optimize-default-libsodium:
-	../../../build/bin/opt -passes="inline" -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_default.ll
+	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_default.ll
 
 default-to-binary-libsodium:
 	../../../build/bin/llvm-as libsodium/opt_default.ll -o libsodium/default.bc
@@ -103,10 +103,10 @@ create-folder-lz4:
 	@mkdir -p lz4
 
 optimize-energy-lz4:
-	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/lz4/lz4.bc -o lz4/opt_energy.ll
+	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/lz4/lz4.bc -o lz4/opt_energy.ll
 
 optimize-default-lz4:
-	../../../build/bin/opt -passes="inline" -S ../../src/.build/lz4/lz4.bc -o lz4/opt_default.ll
+	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/lz4/lz4.bc -o lz4/opt_default.ll
 
 default-to-binary-lz4:
 	../../../build/bin/llvm-as lz4/opt_default.ll -o lz4/default.bc
@@ -117,28 +117,4 @@ energy-to-binary-lz4:
 	../../../build/bin/llvm-as lz4/opt_energy.ll -o lz4/energy.bc
 	../../../build/bin/llc -O0 -filetype=obj lz4/energy.bc -o lz4/energy.o
 	../../../build/bin/clang++ -O0 -no-pie lz4/energy.o -o lz4/energy
-
-
-# Code to optimize lua for demo purposes
-
-lua: create-folder-lua optimize-default-lua optimize-energy-lua default-to-binary-lua energy-to-binary-lua
-
-create-folder-lua:
-	@mkdir -p lua
-
-optimize-energy-lua:
-	../../../build/bin/opt -passes="inline" -inline-energy-aware -S ../../src/.build/lua/lua.bc -o lua/opt_energy.ll
-
-optimize-default-lua:
-	../../../build/bin/opt -passes="inline" -S ../../src/.build/lua/lua.bc -o lua/opt_default.ll
-
-default-to-binary-lua:
-	../../../build/bin/llvm-as lua/opt_default.ll -o lua/default.bc
-	../../../build/bin/llc -O0 -filetype=obj lua/default.bc -o lua/default.o
-	../../../build/bin/clang++ -O0 -g -no-pie lua/default.o -o lua/default
-
-energy-to-binary-lua:
-	../../../build/bin/llvm-as lua/opt_energy.ll -o lua/energy.bc
-	../../../build/bin/llc -O0 -filetype=obj lua/energy.bc -o lua/energy.o
-	../../../build/bin/clang++ -O0 -g -no-pie lua/energy.o -o lua/energy
 
