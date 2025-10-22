@@ -1177,6 +1177,7 @@ public:
         case llvm::Instruction::And:     return 0.00020326970946359796f;
         case llvm::Instruction::Call:    return 0.0005026048907825278f;
         case llvm::Instruction::FDiv:    return 0.0006837626965947967f;
+        case llvm::Instruction::Br:       return 5.629054041255549e-05f;
         case llvm::Instruction::ICmp: {
           const auto *CI = cast<ICmpInst>(U);
           switch (CI->getPredicate()) {
