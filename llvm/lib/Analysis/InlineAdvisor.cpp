@@ -209,8 +209,6 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
     InlineParams Params, InliningAdvisorMode Mode,
     const ReplayInlinerSettings &ReplaySettings, InlineContext IC) {
 
-  dbgs() << "Using ENERGY inliner policy.\n";
-
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   if (PluginInlineAdvisorAnalysis::HasBeenRegistered) {
     auto &DA = MAM.getResult<PluginInlineAdvisorAnalysis>(M);

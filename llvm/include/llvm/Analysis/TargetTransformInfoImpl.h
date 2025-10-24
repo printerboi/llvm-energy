@@ -1194,6 +1194,9 @@ public:
             default:                return 0.0f;
           }
         }
+        case llvm::Instruction::GetElementPtr: return 0.0003207890808457417f;
+        case llvm::Instruction::Store: return 0.0008120661145929742f;
+        case llvm::Instruction::Load:     return 0.0003125470846932054f;
         case llvm::Instruction::Mul:     return 0.00048336198650696105f;
         case llvm::Instruction::FMul:    return 0.0008223163851415645f;
         case llvm::Instruction::Or:      return 0.000504927669792099f;
