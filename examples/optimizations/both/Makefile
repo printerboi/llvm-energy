@@ -13,7 +13,7 @@ optimize-default-sql:
 	../../../build/bin/opt -passes="inline,instcombine" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_default.ll
 
 optimize-o1-eng-sql:
-	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -inline-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_o1_eng.ll
+	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -instsimplify-energy-aware -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_o1_eng.ll
 
 optimize-o1-sql:
 	../../../build/bin/opt -passes="default<O1>" -S ../../src/.build/sqlite/sqlite.bc -o sqlite/opt_o1.ll
@@ -54,7 +54,7 @@ optimize-default-zlib:
 	../../../build/bin/opt -passes="inline,instcombine" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_default.ll
 
 optimize-o1-eng-zlib:
-	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -inline-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_o1_eng.ll
+	../../../build/bin/opt -passes="default<O1>" -instcombine-energy-aware -instsimplify-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_o1_eng.ll
 
 optimize-o1-zlib:
 	../../../build/bin/opt -passes="default<O1>" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_o1.ll

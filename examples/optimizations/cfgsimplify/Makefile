@@ -37,10 +37,10 @@ create-folder-zlib:
 	@mkdir -p zlib
 
 optimize-energy-zlib:
-	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_energy.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -simplifycfg-energy-aware -S ../../src/.build/zlib/zlib.bc -o zlib/opt_energy.ll
 
 optimize-default-zlib:
-	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_default.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -S ../../src/.build/zlib/zlib.bc -o zlib/opt_default.ll
 
 default-to-binary-zlib:
 	../../../build/bin/llvm-as zlib/opt_default.ll -o zlib/default.bc
@@ -74,10 +74,10 @@ create-folder-libsodium:
 	@mkdir -p libsodium
 
 optimize-energy-libsodium:
-	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_energy.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -simplifycfg-energy-aware -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_energy.ll
 
 optimize-default-libsodium:
-	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_default.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -S ../../src/.build/libsodium/libsodium.bc -o libsodium/opt_default.ll
 
 default-to-binary-libsodium:
 	../../../build/bin/llvm-as libsodium/opt_default.ll -o libsodium/default.bc
@@ -103,10 +103,10 @@ create-folder-lz4:
 	@mkdir -p lz4
 
 optimize-energy-lz4:
-	../../../build/bin/opt -passes="instsimplify" -instsimplify-energy-aware -S ../../src/.build/lz4/lz4.bc -o lz4/opt_energy.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -simplifycfg-energy-aware -S ../../src/.build/lz4/lz4.bc -o lz4/opt_energy.ll
 
 optimize-default-lz4:
-	../../../build/bin/opt -passes="instsimplify" -S ../../src/.build/lz4/lz4.bc -o lz4/opt_default.ll
+	../../../build/bin/opt -passes="simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-sink-common-insts;speculate-blocks;simplify-cond-branch>" -S ../../src/.build/lz4/lz4.bc -o lz4/opt_default.ll
 
 default-to-binary-lz4:
 	../../../build/bin/llvm-as lz4/opt_default.ll -o lz4/default.bc
