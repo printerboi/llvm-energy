@@ -30,6 +30,7 @@ add_llvm_component_library(LLVMTransformUtils
   FunctionImportUtils.cpp
   GlobalStatus.cpp
   GuardUtils.cpp
+  CostModelInspector.cpp
   HelloWorld.cpp
   InlineFunction.cpp
   InjectTLIMappings.cpp

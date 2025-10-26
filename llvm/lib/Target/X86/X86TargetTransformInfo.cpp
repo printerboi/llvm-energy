@@ -71,14 +71,15 @@ using namespace llvm;
 // Helper struct to store/access costs for each cost kind.
 // TODO: Move this to allow other targets to use it?
 struct CostKindCosts {
-  unsigned RecipThroughputCost = ~0U;
-  unsigned LatencyCost = ~0U;
-  unsigned CodeSizeCost = ~0U;
-  unsigned SizeAndLatencyCost = ~0U;
+  double RecipThroughputCost = 0.0;
+  double LatencyCost = 0.0;
+  double CodeSizeCost = 0.0;
+  double SizeAndLatencyCost = 0.0;
+  double EnergyCost = 0.0;
 
   std::optional<unsigned>
   operator[](TargetTransformInfo::TargetCostKind Kind) const {
-    unsigned Cost = ~0U;
+    double Cost = 0.0;
     switch (Kind) {
     case TargetTransformInfo::TCK_RecipThroughput:
       Cost = RecipThroughputCost;
@@ -92,8 +93,11 @@ struct CostKindCosts {
     case TargetTransformInfo::TCK_SizeAndLatency:
       Cost = SizeAndLatencyCost;
       break;
+    case TargetTransformInfo::TCK_Energy:
+      Cost = EnergyCost;
+      break;
     }
-    if (Cost == ~0U)
+    if (Cost == 0.0)
       return std::nullopt;
     return Cost;
   }
@@ -222,6 +226,14 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
     ArrayRef<const Value *> Args,
     const Instruction *CxtI) {
+
+    //llvm::errs() << CostKind << "\n";
+
+  // Default handler for energy related information
+  if(CostKind == TTI::TargetCostKind::TCK_Energy) {
+    InstructionCost Cost = 0;
+    return Cost;
+  }
 
   // vXi8 multiplications are always promoted to vXi16.
   // Sub-128-bit types can be extended/packed more efficiently.

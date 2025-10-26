@@ -21,6 +21,8 @@
 #include "llvm/Support/MathExtras.h"
 #include <limits>
 #include <optional>
+#include <cmath>
+#include <limits>
 
 namespace llvm {
 
@@ -28,7 +30,7 @@ class raw_ostream;
 
 class InstructionCost {
 public:
-  using CostType = int64_t;
+  using CostType = double;
 
   /// CostState describes the state of a cost.
   enum CostState {
@@ -90,6 +92,24 @@ public:
     return std::nullopt;
   }
 
+  inline bool CustomAddOverflowCheck(CostType LHS, CostType RHS, CostType &Result) {
+    Result = LHS + RHS;
+      // Check for overflow
+      return std::isinf(Result);
+  }
+
+  inline bool CustomSubOverflowCheck(CostType LHS, CostType RHS, CostType &Result) {
+    Result = LHS - RHS;
+      // Check for overflow
+      return std::isinf(Result);
+  }
+
+  inline bool CustomMulOverflowCheck(CostType LHS, CostType RHS, CostType &Result) {
+    Result = LHS * RHS;
+      // Check for overflow
+      return std::isinf(Result);
+  }
+
   /// For all of the arithmetic operators provided here any invalid state is
   /// perpetuated and cannot be removed. Once a cost becomes invalid it stays
   /// invalid, and it also inherits any invalid state from the RHS.
@@ -101,7 +121,7 @@ public:
 
     // Saturating addition.
     InstructionCost::CostType Result;
-    if (AddOverflow(Value, RHS.Value, Result))
+    if (CustomAddOverflowCheck(Value, RHS.Value, Result))
       Result = RHS.Value > 0 ? getMaxValue() : getMinValue();
 
     Value = Result;
@@ -119,7 +139,7 @@ public:
 
     // Saturating subtract.
     InstructionCost::CostType Result;
-    if (SubOverflow(Value, RHS.Value, Result))
+    if (CustomSubOverflowCheck(Value, RHS.Value, Result))
       Result = RHS.Value > 0 ? getMinValue() : getMaxValue();
     Value = Result;
     return *this;
@@ -136,7 +156,7 @@ public:
 
     // Saturating multiply.
     InstructionCost::CostType Result;
-    if (MulOverflow(Value, RHS.Value, Result)) {
+    if (CustomMulOverflowCheck(Value, RHS.Value, Result)) {
       if ((Value > 0 && RHS.Value > 0) || (Value < 0 && RHS.Value < 0))
         Result = getMaxValue();
       else

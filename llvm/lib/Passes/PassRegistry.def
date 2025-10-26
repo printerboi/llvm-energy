@@ -336,6 +336,7 @@ FUNCTION_PASS("guard-widening", GuardWideningPass())
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
+FUNCTION_PASS("costmodelinspector", CostModelInspectorPass())
 FUNCTION_PASS("indirectbr-expand", IndirectBrExpandPass(TM))
 FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
 FUNCTION_PASS("infer-alignment", InferAlignmentPass())
@@ -508,7 +509,13 @@ FUNCTION_PASS_WITH_PARAMS(
     [](LoopVectorizeOptions Opts) { return LoopVectorizePass(Opts); },
     parseLoopVectorizeOptions,
     "no-interleave-forced-only;interleave-forced-only;no-vectorize-forced-only;"
-    "vectorize-forced-only")
+    "vectorize-forced-only;")
+FUNCTION_PASS_WITH_PARAMS(
+    "energy-loop-vectorize", "LoopVectorizePass",
+    [](LoopVectorizeOptions Opts) { return LoopVectorizePass(Opts); },
+    parseLoopVectorizeOptions,
+    "no-interleave-forced-only;interleave-forced-only;no-vectorize-forced-only;"
+    "vectorize-forced-only;")
 FUNCTION_PASS_WITH_PARAMS(
     "lower-matrix-intrinsics", "LowerMatrixIntrinsicsPass",
     [](bool Minimal) { return LowerMatrixIntrinsicsPass(Minimal); },

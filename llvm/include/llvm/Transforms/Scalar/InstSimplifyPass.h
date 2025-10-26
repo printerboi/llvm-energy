@@ -15,6 +15,8 @@
 #define LLVM_TRANSFORMS_SCALAR_INSTSIMPLIFYPASS_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+
 
 namespace llvm {
 

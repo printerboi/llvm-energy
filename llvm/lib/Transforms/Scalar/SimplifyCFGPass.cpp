@@ -43,6 +43,10 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/IR/ValueMap.h"
+#include "llvm/IR/IRBuilder.h"
 #include <utility>
 using namespace llvm;
 
@@ -77,8 +81,44 @@ static cl::opt<bool> UserSinkCommonInsts(
     "sink-common-insts", cl::Hidden, cl::init(false),
     cl::desc("Sink common instructions (default = false)"));
 
+static cl::opt<bool>
+EnergyAware("simplifycfg-energy-aware", cl::init(false),
+             cl::desc("..."));
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
+
+
+/**
+ * Helper to calculate cost of one basic block
+ */
+static InstructionCost computeEnergyCostOfInstSeq(BasicBlock::iterator begin, BasicBlock::iterator end, const TargetTransformInfo &TTI) {
+  InstructionCost Sum = 0;
+  
+  for (auto it = begin; it != end; it++) {
+    const Instruction &I = *it;
+    // Use the energy cost kind
+    // getInstructionCost returns TargetTransformInfo::InstrCost (signed)
+    auto Cost = TTI.getInstructionCost(&I, TargetTransformInfo::TCK_Energy);
+    // Defensive: if cost is negative (unknown), treat as zero
+    if (Cost > 0)
+      Sum += Cost;
+  }
+  return Sum;
+}
+
+static InstructionCost computeEnergyCostOfBB(const BasicBlock &BB,
+                                     const TargetTransformInfo &TTI) {
+  InstructionCost Sum = 0;
+  for (const Instruction &I : BB) {
+    // Skip dbg info and tokens
+    if (I.isDebugOrPseudoInst())
+      continue;
+    auto Cost = TTI.getInstructionCost(&I, TargetTransformInfo::TCK_Energy);
+    if (Cost > 0)
+      Sum += Cost;
+  }
+  return Sum;
+}
 
 static bool
 performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
@@ -252,10 +292,12 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
         while (BBIt != F.end() && DTU->isBBPendingDeletion(&*BBIt))
           ++BBIt;
       }
+
       if (simplifyCFG(&BB, TTI, DTU, Options, LoopHeaders)) {
         LocalChange = true;
         ++NumSimpl;
       }
+
     }
     Changed |= LocalChange;
   }
@@ -294,18 +336,53 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
 static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
                                 DominatorTree *DT,
                                 const SimplifyCFGOptions &Options) {
-  assert((!RequireAndPreserveDomTree ||
-          (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
-         "Original domtree is invalid?");
+  if (!EnergyAware) {
+    // Normal behavior
+    return simplifyFunctionCFGImpl(F, TTI, DT, Options);
+  }
 
-  bool Changed = simplifyFunctionCFGImpl(F, TTI, DT, Options);
+  // ✅ Energy-aware behavior: clone first
+  ValueToValueMapTy VMap;
+  Function *Clone = CloneFunction(&F, VMap);
 
-  assert((!RequireAndPreserveDomTree ||
-          (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
-         "Failed to maintain validity of domtree!");
+  // Helper to compute total energy for a function
+  auto computeFuncEnergy = [&](Function &Fn) -> InstructionCost {
+    InstructionCost Sum = 0;
+    for (BasicBlock &BB : Fn)
+      Sum += computeEnergyCostOfBB(BB, TTI);
+    return Sum;
+  };
 
-  return Changed;
+  InstructionCost OldEnergy = computeFuncEnergy(F);
+
+  // Perform CFG Simplification on clone only
+  DominatorTree *CloneDT = nullptr;
+  std::unique_ptr<DominatorTree> OwnedDT;
+  if (DT) {
+    // Rebuild DT for clone if needed
+    OwnedDT = std::make_unique<DominatorTree>(*Clone);
+    CloneDT = OwnedDT.get();
+  }
+
+  bool CloneChanged = simplifyFunctionCFGImpl(*Clone, TTI, CloneDT, Options);
+
+  InstructionCost NewEnergy = computeFuncEnergy(*Clone);
+
+  bool Benefit = (NewEnergy <= OldEnergy);
+  dbgs() << "EnergyAware SimplifyCFG: Old=" << OldEnergy
+         << " New=" << NewEnergy << (Benefit ? " ✅ Accept" : " ❌ Reject") << "\n";
+
+  if (!CloneChanged || !Benefit) {
+    // ❌ Reject the clone entirely
+    Clone->eraseFromParent();
+    return false;
+  }
+
+  dbgs() << "\t =>" << " Performing simplification on function" << "\n";
+
+  return simplifyFunctionCFGImpl(*Clone, TTI, CloneDT, Options);
 }
+
 
 // Command-line settings override compile-time settings.
 static void applyCommandLineOverridesToOptions(SimplifyCFGOptions &Options) {

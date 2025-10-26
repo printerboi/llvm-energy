@@ -1145,19 +1145,80 @@ public:
     // Handle non-intrinsic calls, invokes, and callbr.
     // FIXME: Unlikely to be true for anything but CodeSize.
     auto *CB = dyn_cast<CallBase>(U);
-    if (CB && !isa<IntrinsicInst>(U)) {
-      if (const Function *F = CB->getCalledFunction()) {
-        if (!TargetTTI->isLoweredToCall(F))
-          return TTI::TCC_Basic; // Give a basic cost if it will be lowered
+    if(CostKind != TTI::TCK_Energy){
+      if (CB && !isa<IntrinsicInst>(U)) {
+        if (const Function *F = CB->getCalledFunction()) {
+          if (!TargetTTI->isLoweredToCall(F))
+            return TTI::TCC_Basic; // Give a basic cost if it will be lowered
 
-        return TTI::TCC_Basic * (F->getFunctionType()->getNumParams() + 1);
+          return TTI::TCC_Basic * (F->getFunctionType()->getNumParams() + 1);
+        }
+        // For indirect or other calls, scale cost by number of arguments.
+        return TTI::TCC_Basic * (CB->arg_size() + 1);
       }
-      // For indirect or other calls, scale cost by number of arguments.
-      return TTI::TCC_Basic * (CB->arg_size() + 1);
     }
 
     Type *Ty = U->getType();
     unsigned Opcode = Operator::getOpcode(U);
+
+    //llvm::errs() << " OP: " << Opcode << "\n";
+    
+    /**
+     * We should catch the case that the caller requests the TCK_Energy costtype.
+     * In this case we open another switch block, where we relay the request to
+     * a special method implemented by each target.
+     * Might be the dirtiest implementation ever, but will be currently the fastest approach
+     */
+
+    if (CostKind == TTI::TCK_Energy) {
+      switch (Opcode) {
+        case llvm::Instruction::Add:     return 0.00015730982992697568f;
+        case llvm::Instruction::FAdd:    return 0.00026017022013070587f;
+        case llvm::Instruction::And:     return 0.00020326970946359796f;
+        case llvm::Instruction::Call:    return 0.0005026048907825278f;
+        case llvm::Instruction::FDiv:    return 0.0006837626965947967f;
+        case llvm::Instruction::Br:       return 5.629054041255549e-05f;
+        case llvm::Instruction::ICmp: {
+          const auto *CI = cast<ICmpInst>(U);
+          switch (CI->getPredicate()) {
+            case CmpInst::ICMP_EQ:  return 0.0005574295711568943f;
+            case CmpInst::ICMP_NE:  return 0.00046666151505830866f;
+            case CmpInst::ICMP_SGE: return 0.0008668363238638933f;
+            case CmpInst::ICMP_SGT: return 0.0009853766552638567f;
+            case CmpInst::ICMP_SLE: return 0.0009285947256007995f;
+            case CmpInst::ICMP_SLT: return 0.0006828777161122339f;
+            case CmpInst::ICMP_UGE: return 0.0008342069743361609f;
+            case CmpInst::ICMP_UGT: return 0.0010797343220316363f;
+            case CmpInst::ICMP_ULE: return 0.0011469307123702817f;
+            case CmpInst::ICMP_ULT: return 0.0011406456879742045f;
+            default:                return 0.0f;
+          }
+        }
+        case llvm::Instruction::GetElementPtr: return 0.0003207890808457417f;
+        case llvm::Instruction::Store: return 0.0008120661145929742f;
+        case llvm::Instruction::Load:     return 0.0003125470846932054f;
+        case llvm::Instruction::Mul:     return 0.00048336198650696105f;
+        case llvm::Instruction::FMul:    return 0.0008223163851415645f;
+        case llvm::Instruction::Or:      return 0.000504927669792099f;
+        case llvm::Instruction::FRem:    return 0.0006754514535843997f;
+        case llvm::Instruction::SDiv:    return 0.0007221363664161075f;
+        case llvm::Instruction::Select:  return 0.0006760911190368674f;
+        case llvm::Instruction::SExt:    return 0.0007153450840501757f;
+        case llvm::Instruction::Shl:     return 0.001441324098929827f;
+        case llvm::Instruction::LShr:    return 0.0008164376401641645f;
+        case llvm::Instruction::SRem:    return 0.0010320161793438039f;
+        case llvm::Instruction::Sub:     return 0.0011079961639554256f;
+        case llvm::Instruction::FSub:    return 0.0007817724240223936f;
+        case llvm::Instruction::UDiv:    return 0.0008984127159968117f;
+        case llvm::Instruction::URem:    return 0.001274347773604266f;
+        case llvm::Instruction::Xor:     return 0.001102808607214071f;
+        case llvm::Instruction::ZExt:    return 0.0012602213144566748f;
+        default:                         return 0.0f;
+      }
+      return 0.0f;
+    }
+
+
     auto *I = dyn_cast<Instruction>(U);
     switch (Opcode) {
     default:

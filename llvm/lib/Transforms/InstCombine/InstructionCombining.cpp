@@ -142,6 +142,10 @@ static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
 
+static cl::opt<bool>
+EnergyAware("instcombine-energy-aware", cl::init(false),
+             cl::desc("..."));
+
 // FIXME: Remove this flag when it is no longer necessary to convert
 // llvm.dbg.declare to avoid inaccurate debug info. Setting this to false
 // increases variable availability at the cost of accuracy. Variables that
@@ -627,6 +631,7 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
     if (match(Op, m_Shl(m_Value(), m_Constant(C)))) {
       // X << C --> X * (1 << C)
       RHS = ConstantExpr::getShl(ConstantInt::get(Op->getType(), 1), C);
+
       return Instruction::Mul;
     }
     // TODO: We can add other conversions e.g. shr => div etc.
@@ -1072,25 +1077,72 @@ Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
   // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
   // a common term.
   if (Op0 && Op1 && LHSOpcode == RHSOpcode)
-    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D))
-      return V;
+    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
+          return V;
+        }
+      }else{
+        return V;
+      }
+    }
 
   // The instruction has the form "(A op' B) op (C)".  Try to factorize common
   // term.
   if (Op0)
     if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
       if (Value *V =
-              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident))
+              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
+
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
         return V;
+      }
+      }else{
+        return V;
+      }
+    }
 
   // The instruction has the form "(B) op (C op' D)".  Try to factorize common
   // term.
   if (Op1)
     if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
       if (Value *V =
-              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D))
-        return V;
+              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D)){
+      if (auto *nInst = llvm::dyn_cast<llvm::Instruction>(V)) {
+        if(EnergyAware){
+          llvm::Instruction *oInst = &I;
+          llvm::InstructionCost newCost = TTI.getInstructionCost(nInst, TTI::TCK_Energy);
+          llvm::InstructionCost oldCost = TTI.getInstructionCost(oInst, TTI::TCK_Energy);
+          //dbgs() << "n: " << newCost << " o: " << oldCost << "\n";
 
+          if( newCost < oldCost ) {
+            return V;
+          }
+        }else{
+        return V;
+      }
+      }else{
+        return V;
+      }
+    }
   return nullptr;
 }
 
@@ -4500,13 +4552,24 @@ bool InstCombinerImpl::run() {
 
     if (Instruction *Result = visit(*I)) {
       ++NumCombined;
+      //dbgs() << I->getOpcode() << "\n";
+
+      InstructionCost nCost = TTI.getInstructionCost(Result, TTI::TCK_Energy);
+      InstructionCost oCost = TTI.getInstructionCost(I, TTI::TCK_Energy);
+
+      if (nCost < oCost && EnergyAware){
+        //dbgs() << "Benefit $$$" << ( ( nCost < oCost ) || !EnergyAware ) << "\n";
+      }
+
       // Should we replace the old instruction with a new one?
-      if (Result != I) {
+      if (Result != I  ) {
+        //dbgs() << "Replacing..." << "\n";
+
         LLVM_DEBUG(dbgs() << "IC: Old = " << *I << '\n'
                           << "    New = " << *Result << '\n');
 
         Result->copyMetadata(*I,
-                             {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
+                            {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
         // Everything uses the new instruction now.
         I->replaceAllUsesWith(Result);
 
@@ -4532,7 +4595,9 @@ bool InstCombinerImpl::run() {
         Worklist.pushUsersToWorkList(*Result);
         Worklist.push(Result);
 
-        eraseInstFromFunction(*I);
+        if(( ( nCost < oCost ) || !EnergyAware )) {
+          eraseInstFromFunction(*I);
+        }
       } else {
         LLVM_DEBUG(dbgs() << "IC: Mod = " << OrigI << '\n'
                           << "    New = " << *I << '\n');
@@ -4797,7 +4862,8 @@ static bool combineInstructionsOverFunction(
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);
     MadeChangeInThisIteration |= IC.run();
-    if (!MadeChangeInThisIteration)
+    // We only alow one pass for energy improvement currently
+    if (!MadeChangeInThisIteration || EnergyAware)
       break;
 
     MadeIRChange = true;
@@ -4853,6 +4919,10 @@ PreservedAnalyses InstCombinePass::run(Function &F,
       MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
+
+      //dbgs() << F.getName() << "\n";
+
+      Options.setVerifyFixpoint(false);
 
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
                                        BFI, PSI, LI, Options))

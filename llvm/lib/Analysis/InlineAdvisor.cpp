@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/InlineAdvisor.h"
+#include "llvm/Analysis/EnergyAwareInlineAdvisor.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -61,6 +62,10 @@ static cl::opt<bool>
     AnnotateInlinePhase("annotate-inline-phase", cl::Hidden, cl::init(false),
                         cl::desc("If true, annotate inline advisor remarks "
                                  "with LTO and pass information."));
+
+static cl::opt<bool>
+EnergyAware("advisor-energy-aware", cl::init(false),
+             cl::desc("..."));
 
 namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
@@ -203,6 +208,7 @@ bool PluginInlineAdvisorAnalysis::HasBeenRegistered = false;
 bool InlineAdvisorAnalysis::Result::tryCreate(
     InlineParams Params, InliningAdvisorMode Mode,
     const ReplayInlinerSettings &ReplaySettings, InlineContext IC) {
+
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   if (PluginInlineAdvisorAnalysis::HasBeenRegistered) {
     auto &DA = MAM.getResult<PluginInlineAdvisorAnalysis>(M);
@@ -613,11 +619,16 @@ InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
 
 std::unique_ptr<InlineAdvice> InlineAdvisor::getAdvice(CallBase &CB,
                                                        bool MandatoryOnly) {
-  if (!MandatoryOnly)
-    return getAdviceImpl(CB);
+  if (!MandatoryOnly){
+    auto a = getAdviceImpl(CB);
+    //llvm::outs() << a.get()->isInliningRecommended() << "\n";
+    return a;
+  }
+
   bool Advice = CB.getCaller() != CB.getCalledFunction() &&
                 MandatoryInliningKind::Always ==
                     getMandatoryKind(CB, FAM, getCallerORE(CB));
+  
   return getMandatoryAdvice(CB, Advice);
 }
 
