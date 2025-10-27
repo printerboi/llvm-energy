@@ -337,15 +337,10 @@ static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
                                 DominatorTree *DT,
                                 const SimplifyCFGOptions &Options) {
   if (!EnergyAware) {
-    // Normal behavior
     return simplifyFunctionCFGImpl(F, TTI, DT, Options);
   }
 
-  // ✅ Energy-aware behavior: clone first
-  ValueToValueMapTy VMap;
-  Function *Clone = CloneFunction(&F, VMap);
-
-  // Helper to compute total energy for a function
+  // 🚀 Fast path: compute original energy once
   auto computeFuncEnergy = [&](Function &Fn) -> InstructionCost {
     InstructionCost Sum = 0;
     for (BasicBlock &BB : Fn)
@@ -355,32 +350,41 @@ static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
 
   InstructionCost OldEnergy = computeFuncEnergy(F);
 
-  // Perform CFG Simplification on clone only
+  // Clone and simplify
+  ValueToValueMapTy VMap;
+  Function *Clone = CloneFunction(&F, VMap);
+
+  // 🚀 Skip DT rebuild if not needed by your simplifyFunctionCFGImpl
   DominatorTree *CloneDT = nullptr;
   std::unique_ptr<DominatorTree> OwnedDT;
   if (DT) {
-    // Rebuild DT for clone if needed
     OwnedDT = std::make_unique<DominatorTree>(*Clone);
     CloneDT = OwnedDT.get();
   }
 
   bool CloneChanged = simplifyFunctionCFGImpl(*Clone, TTI, CloneDT, Options);
+  
+  if (!CloneChanged) {
+    Clone->eraseFromParent();
+    return false;  // 🚀 Early exit before energy computation
+  }
 
   InstructionCost NewEnergy = computeFuncEnergy(*Clone);
-
   bool Benefit = (NewEnergy <= OldEnergy);
-  dbgs() << "EnergyAware SimplifyCFG: Old=" << OldEnergy
-         << " New=" << NewEnergy << (Benefit ? " ✅ Accept" : " ❌ Reject") << "\n";
 
-  if (!CloneChanged || !Benefit) {
-    // ❌ Reject the clone entirely
-    Clone->eraseFromParent();
+  if(!Benefit){
+    dbgs() << "EnergyAware SimplifyCFG: Old=" << OldEnergy
+         << " New=" << NewEnergy << (Benefit ? " ✅ Accept" : " ❌ Reject") << "\n";
+  }
+
+  Clone->eraseFromParent();  // 🚀 Delete clone immediately
+
+  if (!Benefit) {
     return false;
   }
 
-  dbgs() << "\t =>" << " Performing simplification on function" << "\n";
-
-  return simplifyFunctionCFGImpl(*Clone, TTI, CloneDT, Options);
+  // Apply to original
+  return simplifyFunctionCFGImpl(F, TTI, DT, Options);
 }
 
 
@@ -432,6 +436,7 @@ void SimplifyCFGPass::printPipeline(
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
+  
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   Options.AC = &AM.getResult<AssumptionAnalysis>(F);
   DominatorTree *DT = nullptr;

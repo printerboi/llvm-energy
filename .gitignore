@@ -88,3 +88,6 @@ examples/optimizations/instsimplify/*/
 
 examples/optimizations/cfgsimplify/*/
 !examples/optimizations/cfgsimplify/test
+
+examples/optimizations/o1/*/
+!examples/optimizations/o1/test
